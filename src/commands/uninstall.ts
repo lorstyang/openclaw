@@ -1,8 +1,10 @@
-import path from "node:path";
 import { cancel, confirm, isCancel, multiselect } from "@clack/prompts";
+import path from "node:path";
+import type { RuntimeEnv } from "../runtime.js";
+import { resolveCliName } from "../cli/cli-name.js";
+import { uninstallCompletionFromAllProfiles } from "../cli/completion-cli.js";
 import { isNixMode } from "../config/config.js";
 import { resolveGatewayService } from "../daemon/service.js";
-import type { RuntimeEnv } from "../runtime.js";
 import { stylePromptHint, stylePromptMessage, stylePromptTitle } from "../terminal/prompt-style.js";
 import { resolveHomeDir } from "../utils.js";
 import { resolveCleanupPlanFromDisk } from "./cleanup-plan.js";
@@ -164,6 +166,18 @@ export async function uninstallCommand(runtime: RuntimeEnv, opts: UninstallOptio
   }
 
   if (scopes.has("state")) {
+    if (dryRun) {
+      runtime.log("[dry-run] remove shell completion entries from profiles");
+    } else {
+      try {
+        const removedProfiles = await uninstallCompletionFromAllProfiles(resolveCliName());
+        if (removedProfiles.length > 0) {
+          runtime.log(`Removed shell completion from: ${removedProfiles.join(", ")}`);
+        }
+      } catch (err) {
+        runtime.error(`Failed to clean shell completion profiles: ${String(err)}`);
+      }
+    }
     await removePath(stateDir, runtime, { dryRun, label: stateDir });
     if (!configInsideState) {
       await removePath(configPath, runtime, { dryRun, label: configPath });
